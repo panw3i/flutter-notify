@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart' hide MenuItem;
 import 'package:local_notifier/local_notifier.dart';
-import 'package:preference_list/preference_list.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:window_manager/window_manager.dart';
@@ -13,15 +12,17 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with TrayListener {
+  List<LocalNotification> _notificationList = [];
+
   final IOWebSocketChannel _channel =
       IOWebSocketChannel.connect(Uri.parse("ws://localhost:9999/ws"));
   ws() async {
     _channel.stream.listen((message) {
       print("Received message: $message");
-
-      LocalNotification? exampleNotification = LocalNotification(
-        identifier: '_exampleNotification',
-        title: "jenkins",
+      LocalNotification? notification = LocalNotification(
+        identifier: '_notification',
+        title: "Jenkins 打包提醒",
+        subtitle: DateTime.now().toString(),
         body: "$message",
         actions: [
           LocalNotificationAction(
@@ -32,12 +33,10 @@ class _HomePageState extends State<HomePage> with TrayListener {
           ),
         ],
       );
-
-      exampleNotification.show();
+      _notificationList.add(notification);
+      notification.show();
     });
   }
-
-  List<LocalNotification> _notificationList = [];
 
   @override
   void initState() {
@@ -45,6 +44,13 @@ class _HomePageState extends State<HomePage> with TrayListener {
     super.initState();
     ws();
     _initTray();
+  }
+
+  @override
+  void dispose() {
+    trayManager.removeListener(this);
+    _channel.sink.close();
+    super.dispose();
   }
 
   void _initTray() async {
@@ -83,66 +89,24 @@ class _HomePageState extends State<HomePage> with TrayListener {
     setState(() {});
   }
 
-  _handleNewLocalNotification() async {
-    LocalNotification notification = LocalNotification(
-      title: "example - ${_notificationList.length}",
-      subtitle: "local_notifier_example",
-      body: "hello flutter!",
-    );
-    notification.onShow = () {
-      print('onShow ${notification.identifier}');
-    };
-    notification.onClose = (closeReason) {
-      print('onClose ${notification.identifier} - $closeReason');
-    };
-    notification.onClick = () {
-      print('onClick ${notification.identifier}');
-    };
-
-    _notificationList.add(notification);
-
-    setState(() {});
-  }
-
   Widget _buildBody(BuildContext context) {
-    return Column(
-      children: [
-        TextButton(
+    return ListView.builder(
+      itemCount: _notificationList.length,
+      itemBuilder: (context, index) {
+        return ListTile(
+          title: Text(_notificationList[index].title +
+              (_notificationList[index].subtitle ?? "")),
+          subtitle: Text(_notificationList[index].body ?? ""),
+          trailing: IconButton(
+            icon: const Icon(Icons.close),
             onPressed: () {
-              print("object");
-              // _channel.stream.s;
-              _channel.sink.add("ping1");
+              _notificationList[index].close();
+              _notificationList.removeAt(index);
+              setState(() {});
             },
-            child: Text("show exampleNotification")),
-        Expanded(
-          child: PreferenceList(
-            children: <Widget>[
-              PreferenceListSection(
-                children: [
-                  PreferenceListItem(
-                    title: Text('New a notification'),
-                    onTap: _handleNewLocalNotification,
-                  ),
-                ],
-              ),
-              for (var notification in _notificationList)
-                PreferenceListSection(
-                  title: Text('${notification.identifier}'),
-                  children: [
-                    PreferenceListItem(
-                      title: Text('show'),
-                      onTap: () => notification.show(),
-                    ),
-                    PreferenceListItem(
-                      title: Text('close'),
-                      onTap: () => notification.close(),
-                    ),
-                  ],
-                ),
-            ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 
