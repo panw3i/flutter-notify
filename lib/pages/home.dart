@@ -15,7 +15,7 @@ class _HomePageState extends State<HomePage> with TrayListener {
   List<LocalNotification> _notificationList = [];
 
   final IOWebSocketChannel _channel =
-      IOWebSocketChannel.connect(Uri.parse("ws://localhost:9999/ws"));
+      IOWebSocketChannel.connect(Uri.parse("ws://192.168.2.199:9999/ws"));
   ws() async {
     _channel.stream.listen((message) {
       print("Received message: $message");
